@@ -43,11 +43,13 @@ def health():
 
 
 @app.post("/chat")
-def chat(req: ChatRequest):
+async def chat(req: ChatRequest):
     """Agente conversacional com ferramentas e memória (Aulas 2-4)."""
     state = {"messages": [{"role": "user", "content": req.message}],
              "pending_action": None, "approved": None}
-    result = graph.invoke(state, config=_config(req.thread_id))
+    # ainvoke (async): as tools vindas do MCP são async-only; um invoke()
+    # síncrono levantaria 'StructuredTool does not support sync invocation'.
+    result = await graph.ainvoke(state, config=_config(req.thread_id))
     # Evento de valor: uma tarefa foi concluída pelo agente.
     record_event("tarefas_concluidas")
     return {"status": "concluido", "answer": result["messages"][-1].content}
@@ -116,7 +118,7 @@ def evals():
 
 
 @app.post("/chat")
-def chat(req: ChatRequest):
+async def chat(req: ChatRequest):
     # 1) Guardrail de ENTRADA — barra o proibido antes de gastar uma chamada.
     permitido, motivo = guardrail_entrada(req.message)
     if not permitido:
@@ -127,7 +129,9 @@ def chat(req: ChatRequest):
     # 2) O agente age (igual à Aula 9).
     state = {"messages": [{"role": "user", "content": req.message}],
              "pending_action": None, "approved": None}
-    result = graph.invoke(state, config=_config(req.thread_id))
+    # ainvoke (async): as tools vindas do MCP são async-only; um invoke()
+    # síncrono levantaria 'StructuredTool does not support sync invocation'.
+    result = await graph.ainvoke(state, config=_config(req.thread_id))
     resposta = result["messages"][-1].content
 
     # 3) Guardrail de SAÍDA — sanitiza antes de devolver.
